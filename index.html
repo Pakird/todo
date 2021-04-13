@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>todo list</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6" crossorigin="anonymous">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h2 class="todo-caption">TODO List</h2>
+        <div id="todo-app" class="callout">
+            <input type="checkbox" class="check-all">complete/take off all
+            <div class="container">
+              <div class="row align-items-center">
+                <div class="col"><input type="text" id="input-data" class='list-group-item' placeholder="new task"></div>
+                <div class="col"><button id="task-add" class="btn btn-outline-dark">+</button></div>
+              </div>
+            </div>
+            <div class="todo-div">
+                <ul id="todo-list" class="list-group">
+                </ul>
+                <div class="footer">
+                    <button id="all" class="btn btn-outline-primary">All</button>
+                    <button id="active" class="btn btn-outline-danger">Active</button>
+                    <button id="completed" class="btn btn-outline-success">Completed</button>
+                    <button id="clear-completed" class="btn btn-outline-dark">Clear completed</button>
+                    <span id="count"></span>
+                  </div>
+                <nav aria-label="Page navigation example">
+                  <ul class="pagination">
+                  </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js">
+    </script>
+    <script>
+    const Task = function Task(idTask, text, checkbox) {
+  this.idTask = idTask;
+  this.text = text;
+  this.checkbox = checkbox;
+};
+
+Task.prototype.getText = function getText() {
+  return this.text;
+};
+
+Task.prototype.getIdTask = function getIdTask() {
+  return this.idTask;
+};
+
+Task.prototype.getCheckbox = function getCheckbox() {
+  return this.checkbox;
+};
+
+Task.prototype.setCheckbox = function setCheckbox(checkbox) {
+  this.checkbox = checkbox;
+};
+
+Task.prototype.setText = function setText(text) {
+  this.text = text;
+};
+
+Task.prototype.render = function render() {
+  return `<li id="${this.getIdTask()}" class='list-group-item'>
+    <input type='checkbox' class='pick-task' ${this.getCheckbox()}>
+    ${this.getText()}
+    <button id='delete' class="btn btn-danger">-</button></li>`;
+};
+
+const Pagination = function Pagination(state, currentPage) {
+  this.state = state;
+  this.currentPage = currentPage;
+};
+
+Pagination.prototype.getCurrentPage = function getCurrentPage() {
+  return this.currentPage;
+};
+Pagination.prototype.getState = function getState() {
+  return this.state;
+};
+Pagination.prototype.setCurrentPage = function setCurrentPage(currentPage) {
+  this.currentPage = currentPage;
+};
+Pagination.prototype.setState = function setState(state) {
+  this.state = state;
+};
+Pagination.prototype.renderPage = function renderPage() {
+  return `<button class="page">${this.getOffset()}</button>`;
+};
+
+
+$(() => {
+  const $inputData = $('#input-data');
+  const $todoListArr = [];
+
+  let state = 'input';
+
+  const pagination = [
+    new Pagination('input', 0),
+    new Pagination('active', 1),
+    new Pagination('completed', 1),
+    new Pagination('all', 1),
+  ];
+  const limit = 5;
+
+  const prepareArrayAccordingState = array => {
+    let totalArray = [];
+
+    switch (state) {
+      case 'completed':
+        totalArray = array
+          .filter(objTask => objTask.getCheckbox() === 'checked');
+        break;
+      case 'active':
+        totalArray = array
+          .filter(objTask => objTask.getCheckbox() === 'unchecked');
+        break;
+      default:
+        totalArray = array
+          .filter(objTask => objTask);
+        break;
+    }
+
+    return totalArray;
+  };
+
+  const printAccordingState = todoArr => {
+    const [pageState] = pagination
+      .filter(page => page.getState() === state);
+
+    let pageNumber;
+    let firstIndex;
+    let displayableArray = [];
+
+    const css = 'page-item active';
+
+    if (state === 'active' || state === 'all' || state === 'input') {
+      const indexes = todoArr.length - 1;
+
+      pageNumber = Math
+        .floor(indexes / limit) + 1;
+      firstIndex = (pageNumber - 1) * limit;
+
+
+      if (state === 'all') {
+        displayableArray = todoArr.slice();
+      } else {
+        displayableArray = todoArr.slice(firstIndex, firstIndex + limit);
+      }
+    } else {
+      pageNumber = pageState.getCurrentPage();
+      firstIndex = (pageNumber - 1) * limit;
+      displayableArray = todoArr.slice(firstIndex, firstIndex + limit);
+    }
+    $(`#${pageNumber}`).addClass(`${css}`);
+    $('#todo-list').html(displayableArray.map(objTask => objTask.render()));
+  };
+
+  const printPagesAccordingState = () => {
+    const actualTodo = prepareArrayAccordingState($todoListArr);
+    const indexes = actualTodo.length - 1;
+    const pageNumber = Math.floor(indexes / limit) + 1;
+    const pagesArray = [];
+
+
+    for (let i = 1; i <= pageNumber; i += 1) {
+      pagesArray.push(i);
+    }
+
+    $('.pagination')
+      .html(pagesArray
+        .map(page => `<li id='${page}' class="page-item">
+        <a class="page-link" href="#">${page}</a></li>`));
+  };
+
+  const getCountActive = todoTasks => todoTasks
+    .filter(objTask => objTask
+      .getCheckbox() === 'unchecked').length;
+
+  const displayCount = value => $('#count')
+    .text(value === 1 ? `${value} task left` : `${value} tasks left`);
+
+  const showAccordingState = todoList => {
+    const actualArray = prepareArrayAccordingState(todoList);
+
+    printPagesAccordingState();
+    printAccordingState(actualArray);
+    displayCount(getCountActive($todoListArr));
+  };
+
+  $('#input-data').on('keydown', event => {
+    if (state === 'all') {
+      state = 'active';
+    }
+    if (event.key === 'Enter' && $inputData.val()) {
+      $todoListArr.push(new Task(Date.now(), $inputData.val(), 'unchecked'));
+      showAccordingState($todoListArr);
+      $inputData.val('');
+    }
+  });
+
+  $(document).on('click', '.page-item', function clickPage() {
+    const id = $(this).attr('id');
+    const offset = Number(id) - 1;
+
+    pagination.forEach(page => {
+      if (page.getState() === state) {
+        page.setCurrentPage(Number(id));
+      }
+    });
+    const firstIndex = limit * offset;
+
+    const arrayAccordingState = prepareArrayAccordingState($todoListArr);
+    const printArr = arrayAccordingState.slice(firstIndex, firstIndex + limit);
+
+    printPagesAccordingState();
+    const css = 'page-item active';
+
+    $(`#${id}`).addClass(`${css}`);
+    displayCount(getCountActive($todoListArr));
+
+    $('#todo-list').html(printArr.map(objTask => objTask.render()));
+  });
+
+  $(document).on('click', '#delete', function clickDelete() {
+    const idTask = $(this).closest('li')
+      .attr('id');
+    const deletedTask = $todoListArr
+      .filter(obj => obj.getIdTask() === Number(idTask));
+    const deletedIndex = $todoListArr.indexOf(deletedTask[0]);
+    const todoAccordingState = prepareArrayAccordingState($todoListArr);
+
+    const deletedTaskAccordingState = todoAccordingState
+      .filter(obj => obj.getIdTask() === Number(idTask));
+
+    const deletedIndexAccordingState = todoAccordingState
+      .indexOf(deletedTaskAccordingState[0]);
+
+    $todoListArr.splice(deletedIndex, 1);
+
+    const actualPage = Math.floor(deletedIndexAccordingState / limit) + 1;
+    const firstIndex = (actualPage - 1) * limit;
+
+    todoAccordingState.splice(deletedIndexAccordingState, 1);
+    let displayableArray = todoAccordingState
+      .slice(firstIndex, firstIndex + limit);
+
+    if (state === 'all') {
+      displayableArray = todoAccordingState.slice();
+    }
+    pagination.forEach(page => {
+      if (page.getState() === state) {
+        page.setCurrentPage(Number(actualPage));
+      }
+    });
+    printPagesAccordingState();
+    const css = 'page-item active';
+
+    $(`#${actualPage}`).addClass(`${css}`);
+    displayCount(getCountActive($todoListArr));
+
+    $('#todo-list').html(displayableArray.map(objTask => objTask.render()));
+  });
+
+  $('#task-add').on('click', () => {
+    if (!$inputData.val()) {
+      return false;
+    }
+    if (state === 'all') {
+      state = 'active';
+    }
+    $todoListArr.push(new Task(Date.now(), $inputData.val(), 'unchecked'));
+    showAccordingState($todoListArr);
+    $inputData.val('');
+
+    return true;
+  });
+
+  $(document).on('change', ':checkbox', function checkCheckbox() {
+    const idTask = $(this).closest('li')
+      .attr('id');
+
+    $todoListArr.forEach(obj => {
+      if ($(`#${idTask}`).find('.pick-task')
+        .is(':checked') && obj.getIdTask() === Number(idTask)) {
+        obj.setCheckbox('checked');
+      } else if (obj.getIdTask() === Number(idTask)) {
+        obj.setCheckbox('unchecked');
+      }
+      displayCount(getCountActive($todoListArr));
+    });
+    if ($('.pick-task').is(':checked')) {
+      $('#clear-completed').css('visibility', 'visible');
+    } else {
+      $('#clear-completed').css('visibility', 'hidden');
+    }
+  });
+
+  $('#active').on('click', () => {
+    state = 'active';
+    const activeTasks = $todoListArr
+      .filter(obj => obj.getCheckbox() === 'unchecked');
+
+
+    showAccordingState(activeTasks);
+  });
+
+  $(document).on('click', '#all', () => {
+    state = 'all';
+    showAccordingState($todoListArr);
+  });
+
+  $('#completed').on('click', () => {
+    state = 'completed';
+    const completedTasks = $todoListArr
+      .filter(obj => obj.getCheckbox() === 'checked');
+
+
+    showAccordingState(completedTasks);
+  });
+
+  $('#clear-completed').css('visibility', 'hidden');
+  $('#clear-completed').on('click', () => {
+    const completedTasks = $todoListArr
+      .filter(objTask => objTask.getCheckbox() === 'checked');
+    const indexesCompleted = completedTasks
+      .map(objTask => $todoListArr.indexOf(objTask));
+    const reversedIndexes = indexesCompleted.reverse();
+
+
+    reversedIndexes.map(index => $todoListArr.splice(index, 1));
+    showAccordingState($todoListArr);
+    $('.check-all').prop('checked', false);
+    $('#clear-completed').css('visibility', 'hidden');
+  });
+
+  $(document).on('dblclick', 'li', function edit() {
+    const idTask = $(this).attr('id');
+    const edited = $todoListArr
+      .filter(objTask => objTask.getIdTask() === Number(idTask));
+
+
+    $(`#${idTask}`)
+      .html(`<input type='text' id='edit' class='list-group-item' value='
+      ${edited[0].getText()}'/>`);
+    $('#edit').on('focusout', () => {
+      $todoListArr.forEach(objTask => {
+        if (objTask.getIdTask() === Number(idTask)) {
+          objTask.setText($('#edit').val());
+        }
+      });
+      showAccordingState($todoListArr);
+    });
+  });
+
+  $(document).on('click', '.check-all', function checkAll() {
+    if ($(this).is(':checked')) {
+      $todoListArr.forEach(obj => obj.setCheckbox('checked'));
+      displayCount(getCountActive($todoListArr));
+      $('#todo-list input:checkbox').prop('checked', true);
+    } else {
+      $todoListArr.forEach(obj => obj.setCheckbox('unchecked'));
+      $('#todo-list input:checkbox').prop('checked', false);
+      displayCount(getCountActive($todoListArr));
+    }
+  });
+});
+    </script>
+</body>
+
+</html>
